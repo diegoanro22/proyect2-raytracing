@@ -56,6 +56,7 @@ impl RayIntersect for Cube {
         let min = -self.half;
         let max = self.half;
 
+        // slabs AABB
         let inv = vec3(
             if rd.x != 0.0 {
                 1.0 / rd.x
@@ -74,12 +75,9 @@ impl RayIntersect for Cube {
             },
         );
 
-        let mut t1 = (min.x - ro.x) * inv.x;
-        let mut t2 = (max.x - ro.x) * inv.x;
-        let mut t3 = (min.y - ro.y) * inv.y;
-        let mut t4 = (max.y - ro.y) * inv.y;
-        let mut t5 = (min.z - ro.z) * inv.z;
-        let mut t6 = (max.z - ro.z) * inv.z;
+        let (mut t1, mut t2) = ((min.x - ro.x) * inv.x, (max.x - ro.x) * inv.x);
+        let (mut t3, mut t4) = ((min.y - ro.y) * inv.y, (max.y - ro.y) * inv.y);
+        let (mut t5, mut t6) = ((min.z - ro.z) * inv.z, (max.z - ro.z) * inv.z);
 
         if t1 > t2 {
             std::mem::swap(&mut t1, &mut t2);
@@ -106,24 +104,46 @@ impl RayIntersect for Cube {
         let p_local = ro + rd * t_hit;
         let eps = 1e-3;
         let mut n_local = vec3(0.0, 0.0, 0.0);
+        let mut uv = (0.0_f32, 0.0_f32);
+
+        let size = (max - min); // = 2*half
+
         if (p_local.x - min.x).abs() < eps {
+            // cara -X
             n_local = vec3(-1.0, 0.0, 0.0);
+            uv.0 = (p_local.z - min.z) / size.z; // u ← Z
+            uv.1 = (p_local.y - min.y) / size.y; // v ← Y
         } else if (p_local.x - max.x).abs() < eps {
+            // +X
             n_local = vec3(1.0, 0.0, 0.0);
+            uv.0 = 1.0 - (p_local.z - min.z) / size.z;
+            uv.1 = (p_local.y - min.y) / size.y;
         } else if (p_local.y - min.y).abs() < eps {
+            // -Y (abajo)
             n_local = vec3(0.0, -1.0, 0.0);
+            uv.0 = (p_local.x - min.x) / size.x;
+            uv.1 = 1.0 - (p_local.z - min.z) / size.z;
         } else if (p_local.y - max.y).abs() < eps {
+            // +Y (arriba)
             n_local = vec3(0.0, 1.0, 0.0);
+            uv.0 = (p_local.x - min.x) / size.x;
+            uv.1 = (p_local.z - min.z) / size.z;
         } else if (p_local.z - min.z).abs() < eps {
+            // -Z
             n_local = vec3(0.0, 0.0, -1.0);
-        } else if (p_local.z - max.z).abs() < eps {
+            uv.0 = 1.0 - (p_local.x - min.x) / size.x;
+            uv.1 = (p_local.y - min.y) / size.y;
+        } else {
+            // +Z
             n_local = vec3(0.0, 0.0, 1.0);
+            uv.0 = (p_local.x - min.x) / size.x;
+            uv.1 = (p_local.y - min.y) / size.y;
         }
 
         // local -> mundo
         let p_world = self.center + self.rot * p_local;
         let n_world = self.rot * n_local;
 
-        Intersect::new(p_world, n_world, t_hit, self.material)
+        Intersect::new(p_world, n_world, t_hit, self.material.clone(), Some(uv))
     }
 }

@@ -2,7 +2,7 @@ use glm::Vec3;
 use nalgebra_glm as glm;
 use raylib::prelude::*;
 
-use crate::color::Rgb;
+use crate::color::{Albedo, Rgb};
 use crate::intersect::{Intersect, RayIntersect};
 use crate::objects::Object;
 
@@ -24,7 +24,7 @@ fn in_shadow(point: &Vec3, normal: &Vec3, sun_dir: &Vec3, objects: &[Object]) ->
 }
 
 pub fn cast_ray(ro: &Vec3, rd: &Vec3, objects: &[Object]) -> Rgb {
-    // z-buffer
+    // buscar el más cercano
     let mut closest = Intersect::empty();
     for o in objects {
         let hit = o.ray_intersect(ro, rd);
@@ -34,13 +34,14 @@ pub fn cast_ray(ro: &Vec3, rd: &Vec3, objects: &[Object]) -> Rgb {
     }
 
     if !closest.is_intersecting {
-        // gradiente azul (cielo)
-        let top = Rgb::new(110, 160, 220); // más claro arriba
-        let bottom = Rgb::new(20, 40, 90); // más oscuro abajo
+        // cielo
+        let top = Rgb::new(110, 160, 220);
+        let bottom = Rgb::new(20, 40, 90);
         let t = 0.5 * (rd.y + 1.0);
         return Rgb::mix(bottom, top, t.clamp(0.0, 1.0));
     }
 
+    // luz direccional
     let sun_dir = glm::normalize(&glm::vec3(-0.6, -1.1, -0.4));
     let L = -sun_dir;
     let ambient = 0.15;
@@ -49,8 +50,18 @@ pub fn cast_ray(ro: &Vec3, rd: &Vec3, objects: &[Object]) -> Rgb {
     if shadowed {
         lambert = 0.0;
     }
-    let shade = ambient + 1.0 * lambert;
-    closest.material.diffuse.scale(shade)
+    let shade = ambient + lambert;
+
+    // base color: textura o color sólido
+    let base = match &closest.material.albedo {
+        Albedo::Solid(c) => *c,
+        Albedo::Tex(tex) => {
+            let (u, v) = closest.uv.unwrap_or((0.0, 0.0));
+            tex.sample(u, v)
+        }
+    };
+
+    base.scale(shade)
 }
 
 pub fn render(

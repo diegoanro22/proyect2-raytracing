@@ -4,7 +4,7 @@ use nalgebra_glm as glm;
 use crate::color::Material;
 use crate::intersect::{Intersect, RayIntersect};
 
-#[derive(Clone)]  
+#[derive(Clone)]
 pub struct Plane {
     pub point: Vec3,  // un punto del plano
     pub normal: Vec3, // normal normalizada (mundo)
@@ -24,7 +24,6 @@ impl Plane {
 impl RayIntersect for Plane {
     fn ray_intersect(&self, ro: &Vec3, rd: &Vec3) -> Intersect {
         let denom = glm::dot(&self.normal, rd);
-        // si es casi paralelo, no intersecta
         if denom.abs() < 1e-6 {
             return Intersect::empty();
         }
@@ -32,9 +31,7 @@ impl RayIntersect for Plane {
         if t <= 0.0 {
             return Intersect::empty();
         }
-
         let p = ro + rd * t;
-        // normal siempre la del plano (constante)
-        Intersect::new(p, self.normal, t, self.material)
+        Intersect::new(p, self.normal, t, self.material.clone(), None) // <--- UV = None
     }
 }
