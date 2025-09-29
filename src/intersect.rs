@@ -1,4 +1,4 @@
-use crate::color::{Material, Rgb};
+use crate::color::Material;
 use glm::{Vec3, vec3};
 use nalgebra_glm as glm;
 
@@ -9,7 +9,7 @@ pub struct Intersect {
     pub normal: Vec3,
     pub is_intersecting: bool,
     pub material: Material,
-    pub uv: Option<(f32, f32)>, // <--- NUEVO
+    pub uv: Option<(f32, f32)>,
 }
 
 impl Intersect {
@@ -19,7 +19,7 @@ impl Intersect {
             point: vec3(0.0, 0.0, 0.0),
             normal: vec3(0.0, 0.0, 0.0),
             is_intersecting: false,
-            material: Material::solid(Rgb::new(0, 0, 0)),
+            material: Material::solid(crate::color::Rgb::new(0, 0, 0)),
             uv: None,
         }
     }
