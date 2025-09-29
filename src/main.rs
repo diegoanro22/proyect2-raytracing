@@ -20,29 +20,29 @@ fn main() {
     let width: i32 = 960;
     let height: i32 = 540;
 
-    let (_rl, _thread) = raylib::init()
+    let (mut rl, thread) = raylib::init()
         .size(width, height)
         .title("Diorama Raytracer — Casa ladrillo (plataforma grande, árbol, charco)")
         .build();
 
-    // Cámara
+    // ===================== Cámara (vista lateral) =====================
     let mut cam = Camera::new(
-        vec3(12.0, 1.8, 0.8),
-        vec3(15.0, 3.6, 0.0),
-        vec3(0.0, 1.0, 10.0),
+        vec3(0.0, 1.8, 2.8), // pos
+        vec3(0.0, 3.6, -4.8), // target
+        vec3(0.0, 1.0, 10.0), // up
         60.0,
         width as f32 / height as f32,
     );
 
-    // Texturas
+    // ===================== Texturas =====================
     let tex_brick = Arc::new(texture::Texture::from_file("assets/texture.png"));
     let tex_ground = Arc::new(texture::Texture::from_file("assets/ground.png"));
     let tex_glowstone = Arc::new(texture::Texture::from_file("assets/glowstone.png"));
-    let skybox = texture::Texture::from_file_maybe("assets/skybox.png");
     let tex_bark = Arc::new(texture::Texture::from_file("assets/bark.png"));
     let tex_leaves = Arc::new(texture::Texture::from_file("assets/leaves.png"));
+    let skybox = texture::Texture::from_file_maybe("assets/skybox.png");
 
-    // Materiales
+    // ===================== Materiales =====================
     let mat_brick = color::Material {
         tex: TexSlot::Some(tex_brick.clone()),
         albedo_color: Rgb::new(200, 170, 120),
@@ -71,7 +71,7 @@ fn main() {
         transparency: 0.0,
         ior: 1.0,
         emission: Rgb::new(255, 240, 200),
-        emission_strength: 0.5,
+        emission_strength: 0.5, // brilla
     };
     let mat_metal = Material::solid_with(Rgb::new(180, 180, 190), 0.75, 0.65);
     let mat_vidrio = color::Material {
@@ -96,7 +96,7 @@ fn main() {
     };
     let mat_tronco = color::Material {
         tex: TexSlot::Some(tex_bark.clone()),
-        albedo_color: Rgb::new(255, 255, 255), 
+        albedo_color: Rgb::new(255, 255, 255),
         specular: 0.06,
         reflectivity: 0.03,
         transparency: 0.0,
@@ -104,25 +104,25 @@ fn main() {
         emission: Rgb::new(0, 0, 0),
         emission_strength: 0.0,
     };
-
     let mat_hojas = color::Material {
         tex: TexSlot::Some(tex_leaves.clone()),
-        albedo_color: Rgb::new(255, 255, 255), // idem
+        albedo_color: Rgb::new(255, 255, 255),
         specular: 0.04,
         reflectivity: 0.02,
-        transparency: 0.0, 
+        transparency: 0.0,
         ior: 1.0,
         emission: Rgb::new(0, 0, 0),
         emission_strength: 0.0,
     };
 
-    // ===== Framebuffer =====
+    // ===================== Framebuffer (half res + scale) =====================
     let fb_w = width / 2;
     let fb_h = height / 2;
+    let scale = 2; // pinta el FB a 2x
     let mut fb = FrameBuffer::new(fb_w, fb_h, Color::BLACK);
     cam.set_aspect(fb_w as f32 / fb_h as f32);
 
-    // ======= ESCENA =======
+    // ===================== Escena estática (objetos + luces) =====================
     let mut objs: Vec<Object> = vec![];
 
     // Parámetros “voxel”
@@ -133,7 +133,7 @@ fn main() {
 
     // Referencias
     let world_floor_y = -0.6; // piso del mundo
-    let base_y = world_floor_y + b * 1.5; // casa subida 1 bloque vs mundo
+    let base_y = world_floor_y + b * 1.5; // casa subida 1 bloque
     let house_center = vec3(0.0, 0.0, -5.0);
 
     let halfx = (nx as f32 - 1.0) * 0.5;
@@ -147,8 +147,8 @@ fn main() {
             )
     };
 
-    // --- Plataforma grande ---
-    let pad_plat = 6; // <- MÁS GRANDE
+    // Plataforma grande
+    let pad_plat = 6;
     let nxp = nx + pad_plat * 2;
     let nzp = nz + pad_plat * 2;
     let plat_center = house_center;
@@ -165,7 +165,7 @@ fn main() {
         }
     }
 
-    // --- Casa (aperturas) ---
+    // Casa (aperturas)
     let door_w_blocks = 2;
     let door_h_blocks = 3;
     let door_ix_center = nx / 2;
@@ -230,7 +230,7 @@ fn main() {
         objs.push(Object::Cube(c));
     }
 
-    // Ventanas 
+    // Ventanas
     for dz in 0..win_w_blocks {
         for dy in 0..win_h_blocks {
             let iz = (nz / 2 - win_w_blocks / 2) + dz;
@@ -273,25 +273,23 @@ fn main() {
         }
     }
 
-    // --- Árbol sobre la plataforma ---
+    // Árbol al frente izquierda
     let tree_base_x = plat_center.x - (halfx_p - 2.0) * b;
     let tree_base_z = plat_center.z + (halfz_p - 2.5) * b;
-    let tree_base_y = plat_y + b; // que arranque sobre la plataforma
+    let tree_base_y = plat_y + b;
 
-    // Tronco (columna)
+    // Tronco
     let trunk_h = 4;
     for i in 0..trunk_h {
         let p = vec3(tree_base_x, tree_base_y + (i as f32) * b, tree_base_z);
         let trunk_block = Cube::from_center_size_rot(p, b, 0.0, 0.0, 0.0, mat_tronco.clone());
         objs.push(Object::Cube(trunk_block));
     }
-
-    // Copa 
+    // Copa
     let crown_center_y = tree_base_y + (trunk_h as f32) * b;
     for dx in -1..=1 {
         for dy in -1..=1 {
             for dz in -1..=1 {
-                // opcional: hacer la copa más redondeada quitando esquinas
                 let p = vec3(
                     tree_base_x + (dx as f32) * b,
                     crown_center_y + (dy as f32) * b,
@@ -303,12 +301,12 @@ fn main() {
         }
     }
 
-    // --- Charco/agua junto al árbol (2x2 bloques) ---
+    // Charco junto al árbol (2x2)
     for ax in 0..2 {
         for az in 0..2 {
             let p = vec3(
-                tree_base_x + (1 + ax) as f32 * b, // a la par del árbol
-                plat_y,                            // sobre la plataforma
+                tree_base_x + (1 + ax) as f32 * b,
+                plat_y,
                 tree_base_z + az as f32 * b,
             );
             let water = Cube::from_center_size_rot(p, b, 0.0, 0.0, 0.0, mat_agua.clone());
@@ -316,7 +314,29 @@ fn main() {
         }
     }
 
-    // ===== Render y guardar snapshot =====
-    renderer::render_to_fb(&cam, &mut fb, &objs, skybox.as_ref(), &lights);
-    fb.render_to_file("output2.png").unwrap();
+    // ===================== LOOP INTERACTIVO =====================
+    while !rl.window_should_close() {
+        cam.update_from_input(&rl);
+
+        let save_snap = rl.is_key_pressed(KeyboardKey::KEY_P);
+
+        renderer::render_to_fb(&cam, &mut fb, &objs, skybox.as_ref(), &lights);
+
+        {
+            let mut d = rl.begin_drawing(&thread);
+            d.clear_background(Color::BLACK);
+            fb.present_scaled(&mut d, 0, 0, scale);
+            d.draw_text(
+                "WASD/QE mover — Flechas rotar — Shift rápido — P = snapshot",
+                10,
+                10,
+                18,
+                Color::WHITE,
+            );
+            d.draw_fps(10, height - 24);
+        } 
+        if save_snap {
+            let _ = fb.render_to_file("output_live.png");
+        }
+    }
 }
